@@ -23,13 +23,26 @@ func TestSecrets_LeavesPublicKeysAlone(t *testing.T) {
 	}
 }
 
-func TestSecrets_RedactsApiKeysAndKeepsTheRest(t *testing.T) {
-	key := "sgk_a1b2c3d4_abcdefghijklmnopqrstuvwxyz0123456789-_ABC"
-	got := Secrets("Authorization: Bearer " + key)
-	if strings.Contains(got, key) {
-		t.Fatalf("api key survived: %q", got)
+func TestSecrets_RedactsApiKeys(t *testing.T) {
+	key := "sgk_Ab12Cd34_" + strings.Repeat("x", 43)
+	got := Secrets("failed to authenticate with " + key)
+	if strings.Contains(got, key) || strings.Contains(got, "sgk_") {
+		t.Fatalf("API key survived: %q", got)
 	}
-	if got != "Authorization: Bearer "+Placeholder {
+	if got != "failed to authenticate with "+Placeholder {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestSecrets_RedactsAuthorizationValuesAndKeepsTheName(t *testing.T) {
+	got := Secrets("request failed: Authorization: Bearer sgk_Ab12Cd34_secretvalue")
+	if strings.Contains(got, "secretvalue") {
+		t.Fatalf("authorization value survived: %q", got)
+	}
+	if !strings.Contains(got, "Authorization:") {
+		t.Fatalf("authorization header name was removed: %q", got)
+	}
+	if !strings.Contains(got, AuthorizationPlaceholder) {
+		t.Fatalf("no authorization placeholder in %q", got)
 	}
 }

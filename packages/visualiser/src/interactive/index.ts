@@ -7,9 +7,10 @@
  *
  * Landed:
  * - `enhanceDetails` — hover/focus detail card (#500).
+ * - `enhanceKeyboard` — keyboard navigation and roving tabindex (#501).
  *
- * Still to come (#501–#505): keyboard navigation, group collapse/expand,
- * search/filter, bounded viewport with zoom and pan, and node permalinks.
+ * Still to come (#502–#505): group collapse/expand, search/filter,
+ * bounded viewport with zoom and pan, and node permalinks.
  */
 
 export type { DetailsData, EnhanceDetailsOptions, NodeDetails } from './details.ts';
@@ -22,6 +23,39 @@ export {
   relatedTo,
 } from './details.ts';
 
+export type { EdgeRef, EnhanceKeyboardOptions, NodePosition } from './keyboard.ts';
+export {
+  KEYBOARD_CLASSES,
+  KEYBOARD_HINT_TEXT,
+  buildNavigationMaps,
+  enhanceKeyboard,
+  getNodePosition,
+  groupNodesIntoColumns,
+} from './keyboard.ts';
+
+export type { EnhanceViewportOptions, ViewportController } from './viewport.ts';
+export {
+  DEFAULT_BASE_FONT_PX,
+  DEFAULT_MAX_SCALE,
+  DEFAULT_VIEWPORT_LABEL,
+  VIEWPORT_CLASSES,
+  computeZoomSteps,
+  enhanceViewport,
+} from './viewport.ts';
+
+export type { ExportPngOptions, RenderCanvasOptions, SvgDimensions } from './png.ts';
+export {
+  PNG_EXPORT_ERROR_MESSAGE,
+  applyExplicitThemeToSvg,
+  canvasToPngBlob,
+  embedFontInSvg,
+  exportDiagramPng,
+  parseSvgDimensions,
+  prepareSvgForPng,
+  renderSvgToCanvas,
+} from './png.ts';
+export { IBM_PLEX_MONO_BASE64 } from './font.ts';
+
 /**
  * Placeholder for the pan/zoom/selection enhancer that lands in #501–#505.
  * Kept so the package's `./interactive` entry has a stable surface while that
@@ -30,3 +64,4 @@ export {
 export function enhanceInteractive(): never {
   throw new Error('@signet/visualiser interactive enhancer is not implemented yet (see #501–#505)');
 }
+
