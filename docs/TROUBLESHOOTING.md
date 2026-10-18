@@ -291,6 +291,20 @@ See [`docs/ARCHIVAL_AND_RESTORATION.md`](ARCHIVAL_AND_RESTORATION.md) for full r
 
 ---
 
+## Log events
+
+Structured log events emitted by the web tier (`apps/web/lib/logger.ts`). Each line is a single JSON object with timestamp (`ts`), log level (`lvl`), and event name (`msg`). No client IPs, session cookies, or tokens are logged on these events.
+
+| Event | Level | Fields | When it fires |
+| ----- | ----- | ------ | ------------- |
+| `contract.attribution` | `info` | `handle`, `address`, `status`, `source`, `capped`, `ms` | Emitted when resolving whether a handle deployed a contract via database or Horizon walk (`attributed`, `not-attributed`, or capped). |
+| `spec.fetch` | `info` | `address`, `network`, `wasmHash`, `bytes`, `cacheHit`, `ms` | Emitted when contract specification is resolved successfully from memory or store cache (`cacheHit: true`) or fetched via Soroban RPC (`cacheHit: false`). |
+| `spec.decode.failed` | `warn` | `wasmHash`, `sdkVersion`, `error` | Emitted when a deployed contract spec custom section cannot be decoded with the pinned SDK version. |
+| `spec.limit.exceeded` | `warn` | `address`, `limit`, `observed` | Emitted when contract spec graph exceeds diagram size limits (`MAX_NODES = 60`). |
+| `api.v1.request` | `info` | `route`, `status`, `ms` | Emitted for every v1 REST API request handled by the `withV1` wrapper (without client IP). |
+
+---
+
 ## Related docs
 
 - [README — Run locally](../README.md#run-locally)

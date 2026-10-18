@@ -40,8 +40,13 @@ export async function exportContractDiagram(
     // #497 will cache this pure layout by (wasmHash, layoutVersion). Reuse the
     // canonical spec resolver now; do not create a competing layout cache.
     const graph = buildContractGraph(fromSpecJson(result.spec));
-    if (graph.nodes.length > MAX_NODES)
+    if (graph.nodes.length > MAX_NODES) {
+      logger.warn(
+        { address, limit: MAX_NODES, observed: graph.nodes.length },
+        'spec.limit.exceeded',
+      );
       return new Response('Diagram too large to export', { status: 422, headers });
+    }
     const svg = renderStandaloneSvg(layoutContractGraph(graph), {
       theme,
       provenance: { address, network, wasmHash: result.wasmHash },

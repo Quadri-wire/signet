@@ -48,6 +48,7 @@ import {
   type DataCache,
 } from './server/contract-cache.ts';
 import { xdr, StrKey } from '@stellar/stellar-sdk';
+import { logger } from './logger.ts';
 
 /** A contract attributed to a handle, ready to render. */
 export interface AttributedContract {
@@ -417,6 +418,7 @@ export async function attributeContractWithDeps(
   address: string,
   deps: AttributeContractDeps = {},
 ): Promise<Attribution> {
+  const start = Date.now();
   // Validate before any I/O: malformed input must not touch the DB or Horizon.
   if (!isValidHandle(handle) || !isContractAddress(address)) return { status: 'invalid' };
 
@@ -430,13 +432,51 @@ export async function attributeContractWithDeps(
     dbRow = undefined;
   }
   // The database is authoritative when reachable: a real miss stays a miss.
-  if (dbRow) return { status: 'attributed', source: 'database', contract: toAttributedContract(dbRow, network) };
-  if (dbRow === null) return { status: 'not-attributed' };
+  if (dbRow) {
+    logger.info(
+      {
+        handle,
+        address,
+        status: 'attributed',
+        source: 'database',
+        capped: false,
+        ms: Date.now() - start,
+      },
+      'contract.attribution',
+    );
+    return { status: 'attributed', source: 'database', contract: toAttributedContract(dbRow, network) };
+  }
+  if (dbRow === null) {
+    logger.info(
+      {
+        handle,
+        address,
+        status: 'not-attributed',
+        source: 'database',
+        capped: false,
+        ms: Date.now() - start,
+      },
+      'contract.attribution',
+    );
+    return { status: 'not-attributed' };
+  }
 
   // No database (unset DATABASE_URL or unreachable): fall back to Horizon.
   const horizon = deps.horizon ?? defaultHorizon;
   try {
-    return await attributeFromHorizon(handle, address, network, horizon);
+    const verdict = await attributeFromHorizon(handle, address, network, horizon);
+    logger.info(
+      {
+        handle,
+        address,
+        status: verdict.status,
+        source: 'horizon',
+        capped: verdict.status === 'not-attributed' && Boolean(verdict.capped),
+        ms: Date.now() - start,
+      },
+      'contract.attribution',
+    );
+    return verdict;
   } catch {
     return { status: 'unavailable' };
   }

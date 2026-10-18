@@ -10,7 +10,7 @@
  * It never throws: every error becomes a `SpecFailure`, a plain object of
  * strings that survives the server/client boundary.
  */
-import { LruSpecCache, type SpecCache, type SpecJson } from '@signet/spec';
+import { InterfaceUnreadable, LruSpecCache, type SpecCache, type SpecJson } from '@signet/spec';
 import type { GetContractSpecOptions, ResolvedContractSpec } from '@signet/spec/resolve';
 import { normalizeNetwork, type Network } from '@signet/types';
 import { ALLOW_HTTP, SOROBAN_RPC_URL, STELLAR_NETWORK } from '../chain.ts';
@@ -119,6 +119,8 @@ export async function loadContractSpec(
   request: ContractSpecRequest,
   deps: ContractSpecDeps = {},
 ): Promise<ContractSpecResult> {
+  const start = Date.now();
+  let decodeFailedLogged = false;
   try {
     const expected = deps.appNetwork ?? STELLAR_NETWORK;
     const network = canonicalNetwork(request.network);
@@ -135,9 +137,41 @@ export async function loadContractSpec(
       caches: deps.caches ?? specCaches(),
       ...(request.wasmHash ? { knownWasmHash: request.wasmHash } : {}),
       logger: {
-        warn: (message, context) => logger.warn({ ...context }, message),
+        warn: (message, context) => {
+          if (message === 'contract interface could not be read') {
+            decodeFailedLogged = true;
+            logger.warn(
+              {
+                wasmHash: (context?.wasmHash as string) ?? request.wasmHash ?? '',
+                sdkVersion: (context?.sdkVersion as string) ?? '',
+                error: (context?.error as string) ?? message,
+              },
+              'spec.decode.failed',
+            );
+            return;
+          }
+          logger.warn({ ...context }, message);
+        },
       },
     });
+
+    const cacheHit = resolved.source === 'memory' || resolved.source === 'store';
+    const bytes = resolved.spec.entriesXdr
+      ? resolved.spec.entriesXdr.reduce((sum, entry) => sum + Buffer.byteLength(entry, 'base64'), 0)
+      : 0;
+
+    logger.info(
+      {
+        address: request.address,
+        network: expected,
+        wasmHash: resolved.wasmHash,
+        bytes,
+        cacheHit,
+        ms: Date.now() - start,
+      },
+      'spec.fetch',
+    );
+
     return {
       ok: true,
       spec: withFlattenedViews(resolved.spec),
@@ -145,6 +179,20 @@ export async function loadContractSpec(
       wasmHash: resolved.wasmHash,
     };
   } catch (error) {
+    if (
+      !decodeFailedLogged &&
+      (error instanceof InterfaceUnreadable || (error as any)?.kind === 'interface_unreadable')
+    ) {
+      const err = error as any;
+      logger.warn(
+        {
+          wasmHash: err.wasmHash ?? request.wasmHash ?? '',
+          sdkVersion: err.sdkVersion ?? '',
+          error: err.message ?? String(err),
+        },
+        'spec.decode.failed',
+      );
+    }
     return { ok: false, failure: classifySpecError(error, request.network) };
   }
 }

@@ -7,6 +7,7 @@ import {
   renderDiagramSvg,
   renderOutlineHtml,
   typeAnchor,
+  MAX_NODES,
 } from '@signet/visualiser';
 import { logger } from '@/lib/logger';
 import { SectionLabel } from '../../../_components/section-label';
@@ -86,6 +87,10 @@ function DiagramBody(props: ContractSlotProps) {
   }
 
   if (decision.kind === 'too-large') {
+    logger.warn(
+      { address: props.address, limit: MAX_NODES, observed: model.nodes.length },
+      'spec.limit.exceeded',
+    );
     return (
       <section data-testid="slot-diagram">
         <SectionLabel as="h2">Diagram</SectionLabel>

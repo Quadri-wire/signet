@@ -138,30 +138,54 @@ export function withV1(
   const cacheHeader = options.cache;
 
   return async function handle(req: Request): Promise<Response> {
+    const start = Date.now();
+    const getRoute = (): string => {
+      try {
+        return new URL(req.url, 'http://localhost').pathname;
+      } catch {
+        return req.url;
+      }
+    };
+    const logAndReturn = (res: Response): Response => {
+      logger.info(
+        {
+          route: getRoute(),
+          status: res.status,
+          ms: Date.now() - start,
+        },
+        'api.v1.request',
+      );
+      return res;
+    };
+
     const method = req.method.toUpperCase();
 
     // 1. Mutating endpoints rejection (docs/API_V1.md §CORS)
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-      return fail('bad_request', 'Method not allowed. v1 endpoints are read-only.', undefined, {
-        status: 405,
-        headers: {
-          Allow: 'GET, HEAD, OPTIONS',
-          'Cache-Control': 'no-store',
-        },
-      });
+      return logAndReturn(
+        fail('bad_request', 'Method not allowed. v1 endpoints are read-only.', undefined, {
+          status: 405,
+          headers: {
+            Allow: 'GET, HEAD, OPTIONS',
+            'Cache-Control': 'no-store',
+          },
+        }),
+      );
     }
 
     // 2. OPTIONS preflight
     if (method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match',
-          'Access-Control-Max-Age': '86400',
-        },
-      });
+      return logAndReturn(
+        new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match',
+            'Access-Control-Max-Age': '86400',
+          },
+        }),
+      );
     }
 
     // 3. API key authentication and rate limiting
@@ -176,7 +200,7 @@ export function withV1(
           headers: { 'Cache-Control': 'no-store' },
         });
         applyCorsAndRateHeaders(response.headers, {});
-        return response;
+        return logAndReturn(response);
       }
 
       const token = authHeader.slice(7).trim();
@@ -187,7 +211,7 @@ export function withV1(
           headers: { 'Cache-Control': 'no-store' },
         });
         applyCorsAndRateHeaders(response.headers, {});
-        return response;
+        return logAndReturn(response);
       }
 
       rateKey = `v1:key:${verifyResult.record.id}`;
@@ -221,7 +245,7 @@ export function withV1(
         },
       );
       applyCorsAndRateHeaders(response.headers, rateLimitHeaders);
-      return response;
+      return logAndReturn(response);
     }
 
     // 4. Execute handler with error trapping
@@ -248,7 +272,7 @@ export function withV1(
       response.headers.set('Cache-Control', cacheHeader);
     }
 
-    return response;
+    return logAndReturn(response);
   };
 }
 
